@@ -1,0 +1,69 @@
+name: Deploy rpi-eeprom Pacman
+
+on:
+  workflow_dispatch:
+    inputs:
+      env:
+        description: 'Environment for the build'
+        required: true
+        default: 'nightly'
+        type: choice
+        options:
+          - nightly
+          - stable
+  push:
+    branches:
+      - master
+
+env:
+  env: 'stable'
+
+jobs:
+  build:
+    name: rpi-eeprom
+    runs-on: [sm-tester]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: aarch64
+
+    steps:
+      - name: Clean up previous build artifacts
+        run: |
+          sudo rm -rf *
+
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Create dummy-display.tar
+        run: |
+          cd ../
+          tar cf rpi-eeprom.tar rpi-eeprom
+          mv rpi-eeprom.tar rpi-eeprom/
+
+      - name: Build Pacman package
+        run: |
+          docker run --rm -v $(pwd):/workspace -w /workspace --platform linux/arm64 \
+          arch-build-arm64:latest bash -c "\
+          export PKGEXT=.pkg.tar.zst && makepkg --noconfirm --cleanbuild"
+          gpg --detach-sign --use-agent  --no-armor *.pkg.tar.zst
+          rm /home/stellarmate/Projects/local-arch-repo/${{ env.env }}/${{ matrix.architecture }}/rpi-eeprom-*
+          cp *.pkg.tar.zst *.pkg.tar.zst.sig /home/stellarmate/Projects/local-arch-repo/${{ env.env }}/${{ matrix.architecture }}
+
+      - name: Generate repo database
+        run: |
+          cd /home/stellarmate/Projects/local-arch-repo/${{ env.env }}/${{ matrix.architecture }}
+          rm smos.*
+          repo-add -s smos.db.tar.gz *.pkg.tar.zst
+
+      - name: Deploy package and repo to server
+        env:
+          SSH_KEY: ${{ secrets.DROPLET_PPA_SSH_KEY }}
+        run: |
+          eval "$(ssh-agent -s)"
+          ssh-add <(echo "$SSH_KEY")
+          
+          rsync -avz -e "ssh -p ${{ secrets.DROPLET_PPA_PORT }}" \
+            /home/stellarmate/Projects/local-arch-repo/${{ env.env }}/ \
+            ${{ secrets.DROPLET_PPA_USER }}@${{ secrets.DROPLET_PPA_HOST }}:/srv/www/repos/pacman/${{ env.env }}/
