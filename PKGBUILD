@@ -16,19 +16,19 @@ package() {
           "etc/default/$pkgbase-eeprom-update")
 
   install -pd "$pkgdir/usr/bin"
-  install -pm755 "$srcdir/rpi-eeprom-config" "$pkgdir/usr/bin/rpi-eeprom-config"
-  install -pm755 "$srcdir/rpi-eeprom-digest" "$pkgdir/usr/bin/rpi-eeprom-digest"
-  install -pm755 "$srcdir/rpi-eeprom-update" "$pkgdir/usr/bin/rpi-eeprom-update"
+  install -pm755 "$srcdir/rpi-eeprom/rpi-eeprom-config" "$pkgdir/usr/bin/rpi-eeprom-config"
+  install -pm755 "$srcdir/rpi-eeprom/rpi-eeprom-digest" "$pkgdir/usr/bin/rpi-eeprom-digest"
+  install -pm755 "$srcdir/rpi-eeprom/rpi-eeprom-update" "$pkgdir/usr/bin/rpi-eeprom-update"
   # Arch ARM does not ship raspi-config
   sed -i '/to change the release/d' "$pkgdir/usr/bin/rpi-eeprom-update"
-  install -pDm644 "$srcdir/rpi-eeprom-update-default" "$pkgdir/etc/default/rpi-eeprom-update"
-  install -pDm644 "$srcdir/LICENSE" "$pkgdir/usr/share/doc/$pkgname"
+  install -pDm644 "$srcdir/rpi-eeprom/rpi-eeprom-update-default" "$pkgdir/etc/default/rpi-eeprom-update"
+  install -pDm644 "$srcdir/rpi-eeprom/LICENSE" "$pkgdir/usr/share/doc/$pkgname"
 
   install -pd "$pkgdir/usr/lib/firmware/raspberrypi/bootloader-2711/backup"
   install -pd "$pkgdir/usr/lib/firmware/raspberrypi/bootloader-2712/backup"
   for target in latest default; do
-    cp -a "$srcdir/firmware-2711/$target" "$pkgdir/usr/lib/firmware/raspberrypi/bootloader-2711"
-    cp -a "$srcdir/firmware-2712/$target" "$pkgdir/usr/lib/firmware/raspberrypi/bootloader-2712"
+    cp -a "$srcdir/rpi-eeprom/firmware-2711/$target" "$pkgdir/usr/lib/firmware/raspberrypi/bootloader-2711"
+    cp -a "$srcdir/rpi-eeprom/firmware-2712/$target" "$pkgdir/usr/lib/firmware/raspberrypi/bootloader-2712"
     # remove old images
     rm -f "$pkgdir/usr/lib/firmware/raspberrypi/bootloader-2711/$target/"pieeprom-202[0,1,2]*.bin
     rm -f "$pkgdir/usr/lib/firmware/raspberrypi/bootloader-2712/$target/"pieeprom-202[0,1,2]*.bin
@@ -45,6 +45,6 @@ package() {
 
   install -pd "$pkgdir/usr/lib/firmware/raspberrypi/bootloader/backup"
   for target in latest default; do
-    cp -a "$srcdir/firmware-2712/$target" "$pkgdir/usr/lib/firmware/raspberrypi/bootloader"
+    cp -a "$srcdir/rpi-eeprom/firmware-2712/$target" "$pkgdir/usr/lib/firmware/raspberrypi/bootloader"
   done
 }
