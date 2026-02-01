@@ -34,7 +34,12 @@ package() {
     rm -f "$pkgdir/usr/lib/firmware/raspberrypi/bootloader-2712/$target/"pieeprom-202[0,1,2]*.bin
   done
 
-  cd $pkgdir/usr/lib/firmware/raspberrypi/bootloader
+  cd $pkgdir/usr/lib/firmware/raspberrypi/bootloader-2711
+  ln -sf latest beta
+  ln -sf latest stable
+  ln -sf default critical
+
+  cd $pkgdir/usr/lib/firmware/raspberrypi/bootloader-2712
   ln -sf latest beta
   ln -sf latest stable
   ln -sf default critical
