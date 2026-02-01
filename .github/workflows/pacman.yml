@@ -36,7 +36,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Create dummy-display.tar
+      - name: Create tar file
         run: |
           cd ../
           tar cf rpi-eeprom.tar rpi-eeprom
