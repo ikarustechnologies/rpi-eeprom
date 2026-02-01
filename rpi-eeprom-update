@@ -10,19 +10,58 @@ if [ -f /etc/default/rpi-eeprom-update ]; then
    . /etc/default/rpi-eeprom-update
 fi
 
+# Early board detection to determine board-specific firmware paths
+detectBoardChip() {
+   local BOARD_INFO=""
+   
+   if [ -f "/sys/firmware/devicetree/base/system/linux,revision" ]; then
+      BOARD_INFO="$(od -v -An -t x1 /sys/firmware/devicetree/base/system/linux,revision | tr -d ' \n')"
+   elif grep -q Revision /proc/cpuinfo; then
+      BOARD_INFO="$(sed -n '/^Revision/s/^.*: \(.*\)/\1/p' < /proc/cpuinfo)"
+   elif command -v vcgencmd > /dev/null 2>&1; then
+      BOARD_INFO="$(vcgencmd otp_dump 2>/dev/null | grep '30:' | sed 's/.*://')"
+   fi
+   
+   if [ -n "${BOARD_INFO}" ] && [ $(((0x$BOARD_INFO >> 23) & 1)) = 1 ]; then
+      local chip_type=$(((0x$BOARD_INFO >> 12) & 15))
+      if [ ${chip_type} = 3 ]; then
+         echo "2711"
+      elif [ ${chip_type} = 4 ]; then
+         echo "2712"
+      fi
+   fi
+}
+
 LOCAL_MODE=0
 if [ -n "$FIRMWARE_ROOT" ]; then
    # Provided by environment
    true
-elif [ -d /usr/lib/firmware/raspberrypi/bootloader ] || [ -d /usr/lib/firmware/raspberrypi/bootloader-2711 ] || [ -d /usr/lib/firmware/raspberrypi/bootloader-2712 ]; then
-   FIRMWARE_ROOT=/usr/lib/firmware/raspberrypi/bootloader
-elif [ -d /lib/firmware/raspberrypi/bootloader ] || [ -d /lib/firmware/raspberrypi/bootloader-2711 ] || [ -d /lib/firmware/raspberrypi/bootloader-2712 ]; then
-   FIRMWARE_ROOT=/lib/firmware/raspberrypi/bootloader
 else
-   # Work from local git checkout
-   LOCAL_MODE=1
-   IGNORE_DPKG_CHECKSUMS=1
-   FIRMWARE_ROOT="${script_dir}/firmware"
+   # Detect board chip to use board-specific directories if available
+   DETECTED_CHIP=$(detectBoardChip)
+   
+   # Try board-specific directories first (for installer images with only board-specific paths)
+   if [ -n "${DETECTED_CHIP}" ]; then
+      if [ -d "/usr/lib/firmware/raspberrypi/bootloader-${DETECTED_CHIP}" ]; then
+         FIRMWARE_ROOT="/usr/lib/firmware/raspberrypi/bootloader-${DETECTED_CHIP}"
+      elif [ -d "/lib/firmware/raspberrypi/bootloader-${DETECTED_CHIP}" ]; then
+         FIRMWARE_ROOT="/lib/firmware/raspberrypi/bootloader-${DETECTED_CHIP}"
+      fi
+   fi
+   
+   # Fall back to generic bootloader directory for backward compatibility
+   if [ -z "${FIRMWARE_ROOT}" ]; then
+      if [ -d /usr/lib/firmware/raspberrypi/bootloader ]; then
+         FIRMWARE_ROOT=/usr/lib/firmware/raspberrypi/bootloader
+      elif [ -d /lib/firmware/raspberrypi/bootloader ]; then
+         FIRMWARE_ROOT=/lib/firmware/raspberrypi/bootloader
+      else
+         # Work from local git checkout
+         LOCAL_MODE=1
+         IGNORE_DPKG_CHECKSUMS=1
+         FIRMWARE_ROOT="${script_dir}/firmware"
+      fi
+   fi
 fi
 
 # Selects the release sub-directory
@@ -448,10 +487,17 @@ checkDependencies() {
       fi
    fi
 
-   FIRMWARE_IMAGE_DIR="${FIRMWARE_ROOT}-${BCM_CHIP}/${FIRMWARE_RELEASE_STATUS}"
-   if ! [ -d "${FIRMWARE_IMAGE_DIR}" ]; then
-      # Use unadorned name for backwards compatiblity
+   # Determine firmware image directory based on whether FIRMWARE_ROOT is already board-specific
+   if echo "${FIRMWARE_ROOT}" | grep -q "\-${BCM_CHIP}$"; then
+      # FIRMWARE_ROOT already includes board-specific suffix (e.g., /usr/lib/firmware/raspberrypi/bootloader-2711)
       FIRMWARE_IMAGE_DIR="${FIRMWARE_ROOT}/${FIRMWARE_RELEASE_STATUS}"
+   else
+      # Try appending chip suffix for backward compatibility with generic bootloader directory
+      FIRMWARE_IMAGE_DIR="${FIRMWARE_ROOT}-${BCM_CHIP}/${FIRMWARE_RELEASE_STATUS}"
+      if ! [ -d "${FIRMWARE_IMAGE_DIR}" ]; then
+         # Use unadorned name for backwards compatibility
+         FIRMWARE_IMAGE_DIR="${FIRMWARE_ROOT}/${FIRMWARE_RELEASE_STATUS}"
+      fi
    fi
    RECOVERY_BIN=${RECOVERY_BIN:-${FIRMWARE_IMAGE_DIR}/recovery.bin}
 
