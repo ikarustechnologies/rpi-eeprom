@@ -1,7 +1,6 @@
 # Maintainer: graysky <therealgraysky AT protonmail DOT com>
 pkgname=rpi-eeprom
 
-_commit=23ca472db400ed1d50903748c2a7f792a64e6577
 pkgver=20260116
 pkgrel=1
 arch=(any)
