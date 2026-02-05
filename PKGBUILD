@@ -7,6 +7,7 @@ url='https://github.com/ikarustechnologies/rpi-eeprom'
 license=(custom)
 source=("rpi-eeprom.tar")
 md5sums=('SKIP')
+install=rpi-eeprom-update.install
 
 package() {
   pkgdesc="Bootloader and VLI USB controller EEPROM update for bcm2711/RPi4 and bcm2712/RPi5 SoC"
